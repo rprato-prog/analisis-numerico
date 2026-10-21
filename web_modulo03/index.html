@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Módulo 3 · Factorización de Cholesky</title>
+<!--
+  Reproductor de la clase asincrónica. Las diapositivas son las páginas del
+  PDF Beamer (latex/Modulo03.pdf) rasterizadas por generar.sh: una página por
+  overlay, así que avanzar = el siguiente \visible/\item<n-> de Beamer.
+  Narración y preguntas: guion.js.  Audio grabado (opcional): audio/p-NN.mp3.
+-->
+<style>
+:root{
+  --verde:#3F8A4B; --verde-osc:#2c6636; --verde-claro:#e9f3eb;
+  --tinta:#1d2a22; --suave:#5b6b61; --borde:#cfdcd2; --fondo:#f4f7f5; --panel:#ffffff;
+  --rojo:#B42318; --ok:#238636;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fondo);color:var(--tinta);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+.shell{max-width:1180px;margin:0 auto;padding:16px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 16px;margin-bottom:10px}
+header h1{font-size:1.15rem;margin:0;color:var(--verde-osc)}
+header p{margin:0;color:var(--suave);font-size:.9rem}
+.stage{position:relative;background:#fff;border:1px solid var(--borde);border-radius:10px;overflow:hidden;box-shadow:0 4px 18px #1d2a2212}
+.stage img{display:block;width:100%;height:auto;aspect-ratio:16/9;background:#fff;user-select:none}
+.stage .tap{position:absolute;top:0;bottom:0;width:30%;cursor:pointer}
+.stage .tap.l{left:0}.stage .tap.r{right:0}
+.bar{position:relative;height:8px;background:#dfe8e1;border-radius:4px;margin:10px 0 4px;cursor:pointer}
+.bar .fill{position:absolute;inset:0 auto 0 0;background:var(--verde);border-radius:4px;width:0}
+.bar .tick{position:absolute;top:-3px;width:2px;height:14px;background:#9fb5a5}
+.bar .q{position:absolute;top:-4px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:#fff;border:2px solid var(--verde-osc)}
+.bar .q.done{background:var(--verde-osc)}
+.meta{display:flex;justify-content:space-between;gap:10px;color:var(--suave);font-size:.85rem;flex-wrap:wrap}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+button,select{font:inherit;font-size:.95rem;border:1px solid var(--borde);background:var(--panel);color:var(--tinta);border-radius:8px;padding:8px 13px;cursor:pointer}
+button:hover:not(:disabled){background:var(--verde-claro)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.prim{background:var(--verde);border-color:var(--verde);color:#fff}
+button.prim:hover:not(:disabled){background:var(--verde-osc)}
+button[aria-pressed="true"]{background:var(--verde-claro);border-color:var(--verde)}
+.sp{flex:1}
+select{max-width:100%}
+.quiz{display:none;margin:12px 0;background:var(--panel);border:1px solid var(--borde);border-left:5px solid var(--verde);border-radius:10px;padding:14px 18px}
+.quiz.on{display:block}
+.quiz h2{font-size:1rem;margin:0 0 6px;color:var(--verde-osc)}
+.quiz .opts{display:grid;gap:8px;margin:10px 0}
+.quiz label{display:flex;gap:10px;align-items:center;padding:9px 12px;border:1px solid var(--borde);border-radius:8px;cursor:pointer}
+.quiz label:hover{background:var(--verde-claro)}
+.quiz label.bien{border-color:var(--ok);background:#e8f5ea}
+.quiz label.mal{border-color:var(--rojo);background:#fcebea}
+.quiz .fb{display:none;margin-top:8px;padding:10px 12px;border-radius:8px;background:var(--fondo)}
+.quiz .fb.on{display:block}
+.quiz .row{display:flex;gap:8px;flex-wrap:wrap}
+details.tr{margin-top:10px;background:var(--panel);border:1px solid var(--borde);border-radius:10px;padding:10px 16px}
+details.tr summary{cursor:pointer;font-weight:600}
+details.tr p{margin:.5em 0 0}
+.note{color:var(--suave);font-size:.8rem;margin-top:14px}
+.fin{display:none;margin:12px 0;padding:12px 16px;border-radius:10px;background:var(--verde-claro);border:1px solid var(--verde)}
+.fin.on{display:block}
+@media (max-width:640px){.shell{padding:8px}button,select{padding:7px 10px;font-size:.9rem}header h1{font-size:1rem}}
+</style>
+<script>
+window.MathJax={tex:{inlineMath:[['\\(','\\)']]},svg:{fontCache:'global'},startup:{typeset:false}};
+</script>
+<script defer src="vendor/tex-svg.js"></script>
+<script src="guion.js"></script>
+</head>
+<body>
+<main class="shell">
+  <header>
+    <h1 id="titulo"></h1>
+    <p id="curso"></p>
+  </header>
+
+  <div class="stage">
+    <img id="slide" alt="Diapositiva">
+    <div class="tap l" id="tapL" title="Anterior"></div>
+    <div class="tap r" id="tapR" title="Siguiente"></div>
+  </div>
+
+  <div class="bar" id="bar"><div class="fill" id="fill"></div></div>
+  <div class="meta"><span id="donde"></span><span id="pag"></span></div>
+
+  <section class="quiz" id="quiz" aria-live="polite">
+    <h2>Comprueba antes de seguir</h2>
+    <div id="qEnun"></div>
+    <div class="opts" id="qOpts"></div>
+    <div class="row">
+      <button class="prim" id="qCheck">Comprobar</button>
+      <button id="qSkip">Saltar pregunta</button>
+    </div>
+    <div class="fb" id="qFb"></div>
+  </section>
+
+  <section class="fin" id="fin"></section>
+
+  <nav class="controls" aria-label="Controles">
+    <button id="prev" title="Anterior (←)">◀</button>
+    <button class="prim" id="next" title="Siguiente (→)">Siguiente ▶</button>
+    <button id="play" title="Narrar esta página (espacio)">🔊 Narrar</button>
+    <button id="auto" aria-pressed="false" title="Narra y avanza solo; se detiene en las preguntas">⏵ Modo continuo</button>
+    <span class="sp"></span>
+    <select id="voz" aria-label="Voz de la narración" title="Voz sintética (provisional)"></select>
+    <select id="indice" aria-label="Ir a"></select>
+  </nav>
+
+  <details class="tr" id="tr">
+    <summary>Transcripción de esta página</summary>
+    <p id="texto"></p>
+  </details>
+
+  <p class="note" id="nota"></p>
+</main>
+
+<script>
+(function(){
+const M=window.MODULO, N=M.narracion.length;
+const $=id=>document.getElementById(id);
+const pad=n=>String(n).padStart(2,'0');
+const src=p=>`slides/p-${pad(p)}.png`;
+const qAt={}; M.preguntas.forEach((q,i)=>{q.i=i;qAt[q.despues]=q;
+  // orden de opciones barajado una vez por sesión (la clave sigue en guion.js)
+  q.orden=q.opciones.map((_,k)=>k);for(let a=q.orden.length-1;a>0;a--){const b=Math.floor(Math.random()*(a+1));[q.orden[a],q.orden[b]]=[q.orden[b],q.orden[a]];}});
+let p=1, auto=false, hablando=false, audio=null;
+const estado={}; // estado[i] = 'bien' | 'mal' | 'saltada'
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+
+$('titulo').textContent=M.titulo; $('curso').textContent=M.curso;
+
+// índice de frames
+M.frames.forEach(f=>{const o=document.createElement('option');o.value=f.desde;o.textContent=`${f.nombre} (p. ${f.desde}${f.hasta>f.desde?'–'+f.hasta:''})`;$('indice').appendChild(o);});
+// marcas en la barra
+M.frames.forEach(f=>{if(f.desde>1){const t=document.createElement('div');t.className='tick';t.style.left=(100*(f.desde-1)/(N-1))+'%';$('bar').appendChild(t);}});
+M.preguntas.forEach(q=>{const d=document.createElement('div');d.className='q';d.id='qm'+q.i;d.style.left=(100*(q.despues-1)/(N-1))+'%';d.title='Pregunta';$('bar').appendChild(d);});
+
+// precarga
+const cache={}; function pre(k){if(k>=1&&k<=N&&!cache[k]){const im=new Image();im.src=src(k);cache[k]=im;}}
+
+function frameDe(k){return M.frames.find(f=>k>=f.desde&&k<=f.hasta);}
+function pendiente(){const q=qAt[p];return q && !estado[q.i];}
+
+function render(){
+  pararVoz();
+  $('slide').src=src(p); pre(p+1); pre(p+2); pre(p-1);
+  const f=frameDe(p);
+  $('donde').textContent=f?`${f.nombre} · paso ${p-f.desde+1} de ${f.hasta-f.desde+1}`:'';
+  $('pag').textContent=`Página ${p} / ${N}`;
+  $('fill').style.width=(100*(p-1)/(N-1))+'%';
+  $('texto').textContent=M.narracion[p-1]||'';
+  $('prev').disabled=p===1;
+  $('next').disabled=(p===N)||pendiente();
+  $('next').textContent=pendiente()?'Responde para seguir':'Siguiente ▶';
+  [...$('indice').options].forEach(o=>{if(+o.value===f.desde)o.selected=true;});
+  mostrarQuiz(); finalizar();
+  store.set('m03_pagina',p);
+}
+
+function ir(k){p=Math.max(1,Math.min(N,k));render();if(auto)narrar();}
+function sig(){if(pendiente())return; if(p<N)ir(p+1);}
+function ant(){if(p>1)ir(p-1);}
+
+// ---------- narración: audio grabado si existe, si no síntesis ----------
+function pararVoz(){hablando=false;if(audio){audio.pause();audio=null;}if('speechSynthesis'in window)speechSynthesis.cancel();$('play').textContent='🔊 Narrar';}
+function alTerminar(){hablando=false;$('play').textContent='🔊 Narrar';if(auto){if(qAt[p]&&!estado[qAt[p].i])return;if(p<N)setTimeout(()=>{if(auto&&!hablando)ir(p+1);},700);else setAuto(false);}}
+function tts(){
+  if(!('speechSynthesis'in window)){alTerminar();return;}
+  const u=new SpeechSynthesisUtterance();
+  // pronunciación: siglas deletreadas como en Latinoamérica
+  const t=M.narracion[p-1].replace(/s\.d\.p\./g,'ese, de, pe');
+  u.text=t; u.rate=.95;
+  const v=vozElegida(); u.voice=v; u.lang=v?v.lang:'es-419';
+  u.onend=alTerminar; u.onerror=()=>{hablando=false;};
+  speechSynthesis.speak(u);
+}
+function narrar(){
+  pararVoz(); hablando=true; $('play').textContent='⏸ Detener';
+  const a=new Audio(`audio/p-${pad(p)}.mp3`); audio=a; const pag=p;
+  a.onended=()=>{if(pag===p)alTerminar();};
+  a.onerror=()=>{if(audio===a&&pag===p){audio=null;tts();}};
+  a.play().catch(()=>{});
+}
+function setAuto(v){auto=v;$('auto').setAttribute('aria-pressed',v);$('auto').textContent=v?'⏸ Pausar continuo':'⏵ Modo continuo';if(v)narrar();else pararVoz();}
+
+// ---------- preguntas ----------
+function tex(el){if(window.MathJax&&MathJax.typesetPromise)MathJax.typesetPromise([el]).catch(()=>{});}
+function mostrarQuiz(){
+  const q=qAt[p], box=$('quiz');
+  if(!q){box.classList.remove('on');return;}
+  box.classList.add('on');
+  $('qEnun').innerHTML=q.enunciado;
+  $('qOpts').innerHTML=q.orden.map(j=>`<label data-k="${j}"><input type="radio" name="op" value="${j}"> <span>${q.opciones[j]}</span></label>`).join('');
+  $('qFb').classList.remove('on'); $('qFb').innerHTML='';
+  $('qCheck').disabled=false; $('qSkip').style.display=estado[q.i]?'none':'';
+  if(estado[q.i]&&estado[q.i]!=='saltada')mostrarFb(q,null);
+  tex(box);
+}
+function mostrarFb(q,j){
+  const labs=[...$('qOpts').querySelectorAll('label')];
+  labs.forEach(l=>{const k=+l.dataset.k;l.classList.remove('bien','mal');if(k===q.correcta)l.classList.add('bien');else if(k===j)l.classList.add('mal');});
+  const ok=j===null?estado[q.i]==='bien':j===q.correcta;
+  $('qFb').innerHTML=`<strong>${ok?'✓ Correcto.':'No es esa. La respuesta correcta está marcada en verde.'}</strong> ${q.explicacion}`;
+  $('qFb').classList.add('on'); tex($('qFb'));
+}
+$('qCheck').onclick=()=>{
+  const q=qAt[p], v=document.querySelector('input[name="op"]:checked');
+  if(!v){$('qFb').innerHTML='Elige una opción.';$('qFb').classList.add('on');return;}
+  const j=+v.value; estado[q.i]=j===q.correcta?'bien':'mal';
+  mostrarFb(q,j); $('qSkip').style.display='none';
+  $('qm'+q.i).classList.add('done'); $('next').disabled=p===N; $('next').textContent='Siguiente ▶';
+  if(auto)setTimeout(()=>{if(auto)ir(p+1);},4000);
+};
+$('qSkip').onclick=()=>{const q=qAt[p];estado[q.i]='saltada';$('qm'+q.i).classList.add('done');render();if(auto)ir(p+1);};
+
+function finalizar(){
+  const box=$('fin');
+  if(p!==N){box.classList.remove('on');return;}
+  const tot=M.preguntas.length, bien=Object.values(estado).filter(x=>x==='bien').length;
+  const sin=M.preguntas.filter(q=>!estado[q.i]||estado[q.i]==='saltada').length;
+  box.innerHTML=`<strong>Fin del Módulo 3.</strong> Preguntas correctas: ${bien} de ${tot}${sin?` (${sin} sin responder)`:''}. Este resultado no se envía a ninguna parte; la nota se registra en el cuestionario de Classroom.`;
+  box.classList.add('on');
+}
+
+// ---------- eventos ----------
+$('next').onclick=sig; $('prev').onclick=ant; $('tapR').onclick=sig; $('tapL').onclick=ant;
+$('play').onclick=()=>{hablando?pararVoz():narrar();};
+$('auto').onclick=()=>setAuto(!auto);
+$('indice').onchange=e=>ir(limitar(+e.target.value));
+// no se puede saltar hacia adelante por encima de una pregunta pendiente
+function limitar(k){const bloq=M.preguntas.find(q=>q.despues<k&&!estado[q.i]);return bloq?bloq.despues:k;}
+$('bar').onclick=e=>{const r=$('bar').getBoundingClientRect();ir(limitar(1+Math.round((N-1)*(e.clientX-r.left)/r.width)));};
+document.addEventListener('keydown',e=>{
+  if(['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName))return;
+  if(['ArrowRight','PageDown'].includes(e.key)){e.preventDefault();sig();}
+  else if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();ant();}
+  else if(e.key===' '){e.preventDefault();hablando?pararVoz():narrar();}
+});
+// ---------- selección de voz: prioridad a variantes latinoamericanas ----------
+// es-ES queda al final; se recuerda la elección en este navegador.
+const PRIO=['es-CO','es-419','es-MX','es-US','es-AR','es-CL','es-PE','es-VE','es-EC'];
+function rango(v){const l=v.lang.replace('_','-');const i=PRIO.indexOf(l);if(i>=0)return i;if(/^es-(ES)$/i.test(l)||/spain|españa|castil/i.test(v.name))return 99;if(/latin|latino|américa|america|mexic|colomb/i.test(v.name))return 1.5;return 50;}
+function vocesES(){if(!('speechSynthesis'in window))return[];return speechSynthesis.getVoices().filter(v=>/^es/i.test(v.lang)).sort((a,b)=>rango(a)-rango(b));}
+function llenarVoces(){
+  const vs=vocesES(), sel=$('voz'); if(!vs.length){sel.style.display='none';return;}
+  sel.style.display=''; const guardada=store.get('m03_voz');
+  sel.innerHTML=vs.map(v=>`<option value="${v.name}">${rango(v)<99?'🌎 ':''}${v.name} (${v.lang})</option>`).join('');
+  if(guardada&&vs.some(v=>v.name===guardada))sel.value=guardada;
+}
+function vozElegida(){const vs=vocesES();return vs.find(v=>v.name===$('voz').value)||vs[0]||null;}
+$('voz').onchange=e=>{store.set('m03_voz',e.target.value);if(hablando)narrar();};
+if('speechSynthesis'in window){llenarVoces();speechSynthesis.onvoiceschanged=llenarVoces;}else $('voz').style.display='none';
+
+$('nota').textContent='Diapositivas: compilación Beamer original (una página por overlay). Voz: grabación del docente si existe audio/p-NN.mp3; si no, síntesis del navegador (provisional). Las respuestas se corrigen solo en este navegador.';
+const g=+store.get('m03_pagina');
+// se retoma la página guardada solo si no hay preguntas antes de ella
+p=(g>1&&g<=N&&!M.preguntas.some(q=>q.despues<g))?g:1;
+render();
+})();
+</script>
+</body>
+</html>
